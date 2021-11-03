@@ -33,9 +33,9 @@ public enum KDTree<Element: KDTreePoint> {
     indirect case node(left: KDTree<Element>, value: Element, dimension: Int, right: KDTree<Element>)
 }
 
-fileprivate extension UnsafeMutablePointer {
+extension UnsafeMutablePointer {
     @_transparent
-    func swapAt(_ i: Int, _ j: Int) {
+    @inlinable internal func swapAt(_ i: Int, _ j: Int) {
         let temp = self[i]
         self[i] = self[j]
         self[j] = temp
@@ -43,6 +43,7 @@ fileprivate extension UnsafeMutablePointer {
 }
 
 extension KDTree {
+    @inlinable
     public init(values: [Element], depth: Int = 0, dimensionsOverride: Int? = nil) {
         guard !values.isEmpty else {
             self = .leaf
@@ -62,7 +63,8 @@ extension KDTree {
         pointer.deallocate()
     }
     
-    private init(values: UnsafeMutablePointer<Element>, startIndex: Int, endIndex: Int, depth: Int = 0, dimensionsOverride: Int? = nil) {
+    @usableFromInline
+    internal init(values: UnsafeMutablePointer<Element>, startIndex: Int, endIndex: Int, depth: Int = 0, dimensionsOverride: Int? = nil) {
         guard endIndex > startIndex else {
             self = .leaf
             return
@@ -105,7 +107,7 @@ extension KDTree {
     /// - Parameter startIndex: start index of the region of interest
     /// - Parameter endIndex: end index of the region of interest
     /// - Parameter kdDimension: dimension to evaluate
-    private static func quickSelect(targetIndex: Int, values: UnsafeMutablePointer<Element>, startIndex: Int, endIndex: Int, kdDimension: Int) {
+    @inlinable static func quickSelect(targetIndex: Int, values: UnsafeMutablePointer<Element>, startIndex: Int, endIndex: Int, kdDimension: Int) {
         
         guard endIndex - startIndex > 1 else { return }
         
@@ -136,7 +138,7 @@ extension KDTree {
     ///   - values: the pointer to the values
     ///   - kdDimension: the dimension sorted over
     /// - Returns: the index of the pivot element in the pointer
-    private static func partitionHoare(_ values: UnsafeMutablePointer<Element>, startIndex lo: Int, endIndex: Int, kdDimension: Int) -> Int {
+    @inlinable static func partitionHoare(_ values: UnsafeMutablePointer<Element>, startIndex lo: Int, endIndex: Int, kdDimension: Int) -> Int {
         let hi = endIndex - 1
         guard lo < hi else { return lo }
         

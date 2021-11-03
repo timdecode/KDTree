@@ -25,6 +25,43 @@ import Foundation
 
 // MARK: Nearest Neighbour
 extension KDTree {
+    struct Neighbours {
+        typealias ElementPair = (distance: Double, point: Element)
+
+        fileprivate var nearestValues: [ElementPair] = []
+        fileprivate let goalNumber: Int
+        fileprivate var currentSize = 0
+        fileprivate var full: Bool = false
+        var biggestDistance: Double = Double.infinity
+        
+        init(goalNumber: Int) {
+            nearestValues.reserveCapacity(goalNumber)
+            self.goalNumber = goalNumber
+        }
+        
+        mutating func append(_ value: Element, distance: Double) {
+            guard !full || distance < biggestDistance else { return }
+
+            if let index = nearestValues.firstIndex(where: { return distance < $0.distance }) {
+                nearestValues.insert(ElementPair(distance: distance, point: value), at: index)
+                if full {
+                    nearestValues.removeLast()
+                    biggestDistance = nearestValues.last!.distance
+                }
+                else {
+                    currentSize += 1
+                    full = currentSize >= goalNumber
+                }
+            }
+            else {
+                //not full so we append at the end
+                nearestValues.append(ElementPair(distance: distance, point: value))
+                currentSize += 1
+                full = currentSize >= goalNumber
+                biggestDistance = distance
+            }
+        }
+    }
     
     /// Returns a the nearest `KDTreePoint` to the search point,
     /// If `element` is a member of the tree, the algorithm will return the closest other value
@@ -37,7 +74,7 @@ extension KDTree {
         return nearest(to: element, bestValue: nil, bestDistance: maxDistance, condition: condition).bestValue
     }
     
-    fileprivate func nearest(to searchElement: Element, bestValue: Element?, bestDistance: Double, condition: (Element) -> Bool) -> (bestValue: Element?, bestDistance: Double) {
+    func nearest(to searchElement: Element, bestValue: Element?, bestDistance: Double, condition: (Element) -> Bool) -> (bestValue: Element?, bestDistance: Double) {
         switch self {
         case .leaf: break
         case let .node(.leaf, value, _, .leaf) where condition(value):
@@ -69,49 +106,6 @@ extension KDTree {
         }
         return (bestValue, bestDistance)
     }
-}
-
-
-private struct Neighbours {
-    typealias ElementPair = (distance: Double, point: Any)
-
-    fileprivate var nearestValues: [ElementPair] = []
-    fileprivate let goalNumber: Int
-    fileprivate var currentSize = 0
-    fileprivate var full: Bool = false
-    var biggestDistance: Double = Double.infinity
-    
-    init(goalNumber: Int) {
-        nearestValues.reserveCapacity(goalNumber)
-        self.goalNumber = goalNumber
-    }
-    
-    mutating func append(_ value: Any, distance: Double) {
-        guard !full || distance < biggestDistance else { return }
-
-        if let index = nearestValues.firstIndex(where: { return distance < $0.distance }) {
-            nearestValues.insert(ElementPair(distance: distance, point: value), at: index)
-            if full {
-                nearestValues.removeLast()
-                biggestDistance = nearestValues.last!.distance
-            }
-            else {
-                currentSize += 1
-                full = currentSize >= goalNumber
-            }
-        }
-        else {
-            //not full so we append at the end
-            nearestValues.append(ElementPair(distance: distance, point: value))
-            currentSize += 1
-            full = currentSize >= goalNumber
-            biggestDistance = distance
-        }
-    }
-}
-
-// MARK: k Nearest Neighbour
-extension KDTree {
     
     /// Returns the k nearest `KDTreePoint`s to the search point,
     ///
@@ -119,11 +113,11 @@ extension KDTree {
     public func nearestK(_ number: Int, to searchElement: Element, where condition: (Element) -> Bool = { _ in true }) -> [Element] {
         var neighbours: Neighbours = Neighbours(goalNumber: number)
         self.nearestK(to: searchElement, bestValues: &neighbours, where: condition)
-        return neighbours.nearestValues.map { $0.point as! Element }
+        return neighbours.nearestValues.map { $0.point }
     }
     
 
-    fileprivate func nearestK(to searchElement: Element, bestValues: inout Neighbours, where condition: (Element) -> Bool) {
+    func nearestK(to searchElement: Element, bestValues: inout Neighbours, where condition: (Element) -> Bool) {
         switch self {
         case let .node(left, value, dim, right):
             let dimensionDifference = value.kdDimension(dim) - searchElement.kdDimension(dim)
@@ -185,5 +179,35 @@ extension KDTree {
             }
         case .leaf: break
         }
+    }
+}
+
+
+
+
+// MARK: k Nearest Neighbour
+extension KDTree {
+    
+    
+}
+
+public struct KNN<Element: KDTreePoint> {
+    typealias TKDTree = KDTree<Element>
+    
+    var neighbours: TKDTree.Neighbours
+    
+    public init(k: Int) {
+        self.neighbours = .init(goalNumber: k)
+    }
+    
+    public mutating func nearest(
+        to query: Element,
+        in tree: KDTree<Element>,
+        where condition: (Element) -> Bool = { _ in true }
+    ) -> [(distance: Double, point: Element)]
+    {
+        tree.nearestK(to: query, bestValues: &neighbours, where: condition)
+        
+        return neighbours.nearestValues
     }
 }
